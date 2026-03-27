@@ -1,8 +1,8 @@
 package main
 
 import (
-	"c2project/encryption"
-	"c2project/github"
+	"c2project/pkg/encryption"
+	"c2project/pkg/github"
 	"fmt"
 	"math/rand/v2"
 	"os"
