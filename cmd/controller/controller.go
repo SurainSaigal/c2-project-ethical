@@ -34,8 +34,7 @@ func main() {
 	key := string(encryption.XORTransform(scrambledKey, xorKey))
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Printf("%s--- Super Evil Chud Hacker Console ---%s\n", BoldCyan, Reset)
-	fmt.Printf("%sTarget:%s week4-vm | %sProtocol:%s GitHub Backdoor\n", Gray, Green, Gray, Green)
+	fmt.Printf("%s--- Super Evil Hacker Console ---%s\n", BoldCyan, Reset)
 
 	for {
 		fmt.Printf("%s┌──(%shacker@week4%s)-[%s~%s]\n", Cyan, Red, Cyan, Gray, Cyan)
