@@ -79,8 +79,10 @@ func main() {
 }
 
 func waitForResult(oldEncryptedPayload string, sentTimestamp int64, key string) {
+	secsWaited := 0
 	for {
 		time.Sleep(5 * time.Second)
+		secsWaited += 5
 
 		content, err := github.ReadFile("commands.txt")
 		if err != nil {
@@ -111,6 +113,12 @@ func waitForResult(oldEncryptedPayload string, sentTimestamp int64, key string) 
 
 		if receivedTimestamp == sentTimestamp {
 			fmt.Println(parts[1])
+			return
+		}
+
+		secsWaited += 5
+		if secsWaited >= 60 {
+			fmt.Printf("%sTarget is unresponsive. Agent might be offline.\n", Red)
 			return
 		}
 	}

