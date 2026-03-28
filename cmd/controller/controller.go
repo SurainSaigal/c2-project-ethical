@@ -73,7 +73,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("%s[*]%s Command Sent. Waiting for Agent Check-in... ", Yellow, Reset)
+		fmt.Printf("%s[*]%s Command Sent. Waiting for Agent Check-in...\n", Yellow, Reset)
 		waitForResult(encryptedPayload, timestamp, key)
 	}
 }
