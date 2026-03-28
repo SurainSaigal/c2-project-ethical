@@ -1,12 +1,14 @@
-## Command and Control Project - Ethical Hacking
+# Command and Control Project - Ethical Hacking
 
-# Surain Saigal, Josh Yu
+### Surain Saigal, Josh Yu
+
+## Description
 
 This project is a backdoor which uses this GitHub repo as an intermediary communication point.
 This repo is public, but all communication is encrypted using a shared secret key with AES-GCM.
 This project is for academic purposes only and is not intended for malicious use.
 
-# Installation
+## Installation
 
 To compile the binary, you must have Go installed.
 
