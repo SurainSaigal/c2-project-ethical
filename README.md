@@ -24,3 +24,7 @@ Now run `controller` on the command/control system.
 You will have a pseudo-shell which acts as a normal root shell on the victim system, granted a bit of time delay.
 This shell is not interactive, and won't persist across commands (i.e., you can't run `cd` and still be in the same directory on the next command). You can, however, use this shell to set up an actual interactive reverse shell using netcat
 or the like.
+
+## Uninstall
+
+Run `uninstall.sh` as root on the target machine to completely remove any traces of the backdoor.
