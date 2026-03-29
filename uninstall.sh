@@ -9,7 +9,7 @@ systemctl stop sys_update.service
 systemctl disable sys_update.service
 
 # 3. Delete your payload and the service file
-rm /usr/local/bin/sys_update
+rm /usr/local/bin/.sys_update
 rm /etc/systemd/system/sys_update.service
 
 # 4. Tell the OS to refresh its service list so it stops looking for it
